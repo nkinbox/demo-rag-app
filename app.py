@@ -155,7 +155,7 @@ def readFile():
     if file_id:
         client = weaviate.connect_to_local()
         try:
-            offset = 1
+            offset = 0
             limit = 1
             while True:
                 result = client.collections.get(VECTOR_DB).query.fetch_objects(
