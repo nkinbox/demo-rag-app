@@ -161,7 +161,7 @@ def readFile():
         finally:
             client.close()
 
-    return render_template("chunks.html", chunks=chunks)
+    return render_template("read.html", chunks=chunks)
 
 if __name__ == "__main__":
     app.run(debug=True)
