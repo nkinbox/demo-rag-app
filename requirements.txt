@@ -3,3 +3,5 @@ weaviate-client
 openai
 spacy
 PyMuPDF
+Werkzeug
+python-slugify

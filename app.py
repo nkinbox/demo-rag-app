@@ -5,10 +5,11 @@ from openai import OpenAI
 import weaviate
 import spacy
 from weaviate.classes.config import Property, DataType
-from weaviate.classes.query import Filter
+from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.classes.aggregate import GroupByAggregate
-
-from flask import Flask, request, render_template, redirect, url_for
+from werkzeug.utils import secure_filename
+from slugify import slugify
+from flask import Flask, request, render_template, redirect, url_for, jsonify
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -166,27 +167,39 @@ def delete_from_weaviate(file_id):
         client.close()
 
 
-@app.route("/", methods=["GET", "POST"])
-def index():
+@app.route("/upload", methods=["GET", "POST"])
+def upload():
     if request.method == "POST":
         if 'upload' in request.form:
             file = request.files['file']
             if file and file.filename.endswith(".pdf"):
-                file_id = str(uuid.uuid4())
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_id + ".pdf")
+                original_name = os.path.splitext(file.filename)[0]
+                file_id = slugify(original_name)
+                filename = f"{file_id}.pdf"
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+                # Avoid overwriting existing files
+                counter = 0
+                while os.path.exists(file_path):
+                    counter += 1
+                    filename = f"{file_id}_{counter}.pdf"
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+                file_id = f"{file_id}_{counter}.pdf"
                 file.save(file_path)
+                
                 embed_and_store(file_id, file_path)
         elif 'delete' in request.form:
             file_id = request.form['delete']
             os.remove(os.path.join(app.config['UPLOAD_FOLDER'], file_id + ".pdf"))
             delete_from_weaviate(file_id)
 
-        return redirect(url_for('index'))
+        return redirect(url_for('upload'))
 
     files = [
         f.replace(".pdf", "") for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.endswith(".pdf")
     ]
-    return render_template("index.html", files=files)
+    return render_template("upload.html", files=files)
 
 @app.route("/read", methods=["GET", "POST"])
 def readFile():
@@ -215,6 +228,63 @@ def readFile():
             client.close()
 
     return render_template("read.html", chunks=chunks)
+
+
+@app.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+@app.route("/openai", methods=["POST"])
+def openai():
+    prompt = request.form.get('prompt')
+    openai = OpenAI()
+    response = openai.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0
+    )
+    result = response.choices[0].message.content.strip()
+    return jsonify({
+        'data': result
+    })
+
+@app.route("/rag", methods=["POST"])
+def rag():
+    context = request.form.get('context')
+    openai = OpenAI()
+    response = openai.embeddings.create(
+        input=context,
+        model="text-embedding-3-large"
+    )
+    vector = response.data[0].embedding
+    chunks = []
+    client = weaviate.connect_to_local()
+    try:
+        collection = client.collections.get(VECTOR_DB)
+        resp = collection.query.near_vector(
+            near_vector=vector,
+            limit=50,
+            distance=0.6,
+            return_metadata=MetadataQuery(distance=True)
+        )
+        for o in resp.objects:
+            chunks.append({
+                'file_id': o.properties['file_id'],
+                'page': o.properties['page'],
+                'text': o.properties['chunk'],
+                'score': o.metadata.distance
+            })
+    finally:
+        client.close()
+
+    return jsonify({
+        'chunks': chunks
+    })
 
 if __name__ == "__main__":
     app.run(debug=True)
