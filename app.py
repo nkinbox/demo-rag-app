@@ -91,7 +91,7 @@ def cleanChunk(text):
         '\n'
         'Here is the raw text:\n'
         '---\n'
-        '{text}\n'
+        f'{text}\n'
         '---\n'
         '\n'
         'Output:\n'
