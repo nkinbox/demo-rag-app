@@ -238,14 +238,13 @@ def rag():
             resp = collection.query.near_vector(
                 near_vector=vector,
                 limit=50,
-                return_metadata=MetadataQuery(distance=True, score=True)
+                return_metadata=MetadataQuery(distance=True)
             )
             for o in resp.objects:
                 chunks.append({
                     'file_id': o.properties['file_id'],
                     'page': o.properties['page'],
                     'text': o.properties['chunk'],
-                    'score': o.metadata.score,
                     'distance': o.metadata.distance,
                 })
     finally:
