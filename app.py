@@ -1,15 +1,18 @@
 import os
 import uuid
 import fitz  # PyMuPDF
-import openai
+from openai import OpenAI
 import weaviate
 import spacy
-from weaviate.classes.config import Property, DataType, Configure
+from weaviate.classes.config import Property, DataType
+from weaviate.classes.query import Filter
 
 from flask import Flask, request, render_template, redirect, url_for
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+VECTOR_DB = 'ComplianceChunk'
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -17,21 +20,24 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 # Load spaCy NLP model
 nlp = spacy.load("en_core_web_lg")
 
-# Initialize Weaviate client
-client = weaviate.connect_to_local()
-
 # Create vector DB class if not exists
 def init_weaviate_schema():
-    if not client.collections.exists("ComplianceChunk"):
-        client.collections.create(
-            "ComplianceChunk",
-            vectorizer_config=None,
-            properties=[
-                Property(name="file_id", data_type=DataType.TEXT),
-                Property(name="page", data_type=DataType.INT),
-                Property(name="chunk", data_type=DataType.TEXT),
-            ]
-        )
+    # Initialize Weaviate client
+    client = weaviate.connect_to_local()
+    try:
+        if not client.collections.exists(VECTOR_DB):
+            client.collections.create(
+                VECTOR_DB,
+                vectorizer_config=None,
+                properties=[
+                    Property(name="file_id", data_type=DataType.TEXT),
+                    Property(name="page", data_type=DataType.INT),
+                    Property(name="chunk", data_type=DataType.TEXT),
+                ]
+            )
+    finally:
+        client.close()
+    
 
 init_weaviate_schema()
 
@@ -61,6 +67,7 @@ def chunk_with_spacy(text, max_tokens=1000, overlap=2):
 
 
 def embed_and_store(file_id, pdf_path):
+    openai = OpenAI()
     pages = extract_pdf_text(pdf_path)
     all_chunks = []
 
@@ -70,25 +77,34 @@ def embed_and_store(file_id, pdf_path):
             all_chunks.append({"chunk": chunk, "page": page_data["page"]})
 
     texts = [c["chunk"] for c in all_chunks]
-    embeddings = openai.Embedding.create(input=texts, model="text-embedding-ada-002")["data"]
+    embeddings = openai.embeddings.create(input=texts, model="text-embedding-3-large")["data"]
 
-    for i, c in enumerate(all_chunks):
-        client.data_object.create(
-            class_name="ComplianceChunk",
-            vector=embeddings[i]["embedding"],
-            data_object={
-                "file_id": file_id,
-                "page": c["page"],
-                "chunk": c["chunk"]
-            }
-        )
+    client = weaviate.connect_to_local()
+    try:
+        collection = client.collections.get(VECTOR_DB)
+        with collection.batch.fixed_size(batch_size=100) as batch:                
+            for i, c in enumerate(all_chunks):
+                batch.add_object(
+                    properties={
+                        "file_id": file_id,
+                        "page": c["page"],
+                        "chunk": c["chunk"]
+                    },
+                    vector=embeddings[i]["embedding"]
+                )
+    finally:
+        client.close()
 
 
 def delete_from_weaviate(file_id):
-    client.batch.delete_objects(
-        class_name="ComplianceChunk",
-        where={"path": ["file_id"], "operator": "Equal", "valueString": file_id}
-    )
+    client = weaviate.connect_to_local()
+    try:
+        collection = client.collections.get(VECTOR_DB)
+        collection.data.delete_many(
+            where=Filter.by_property("file_id").equal(f"{file_id}")
+        )
+    finally:
+        client.close()
 
 
 @app.route("/", methods=["GET", "POST"])
