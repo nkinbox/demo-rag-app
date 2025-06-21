@@ -239,14 +239,15 @@ def rag():
                 near_vector=vector,
                 limit=50,
                 distance=0.6,
-                return_metadata=MetadataQuery(distance=True)
+                return_metadata=MetadataQuery(distance=True, score=True)
             )
             for o in resp.objects:
                 chunks.append({
                     'file_id': o.properties['file_id'],
                     'page': o.properties['page'],
                     'text': o.properties['chunk'],
-                    'score': o.metadata.distance
+                    'score': o.metadata.score,
+                    'distance': o.metadata.distance,
                 })
     finally:
         client.close()
