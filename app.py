@@ -131,17 +131,18 @@ def embed_and_store(file_id, pdf_path):
 
     client = weaviate.connect_to_local()
     try:
-        collection = client.collections.get(VECTOR_DB)
-        with collection.batch.fixed_size(batch_size=100) as batch:                
-            for i, c in enumerate(all_chunks):
-                batch.add_object(
-                    properties={
-                        "file_id": file_id,
-                        "page": c["page"],
-                        "chunk": c["chunk"]
-                    },
-                    vector=embeddings[i].embedding
-                )
+        if client.collections.exists(VECTOR_DB):
+            collection = client.collections.get(VECTOR_DB)
+            with collection.batch.fixed_size(batch_size=100) as batch:                
+                for i, c in enumerate(all_chunks):
+                    batch.add_object(
+                        properties={
+                            "file_id": file_id,
+                            "page": c["page"],
+                            "chunk": c["chunk"]
+                        },
+                        vector=embeddings[i].embedding
+                    )
     finally:
         client.close()
 
@@ -149,19 +150,20 @@ def embed_and_store(file_id, pdf_path):
 def delete_from_weaviate(file_id):
     client = weaviate.connect_to_local()
     try:
-        collection = client.collections.get(VECTOR_DB)
-        while True:
-            groupBy = collection.aggregate.over_all(group_by=GroupByAggregate(prop="file_id"))
-            file_id_count = 0
-            for group in groupBy.groups:
-                if group.grouped_by.value == file_id:
-                    file_id_count = int(group.total_count)
-            if file_id_count > 0:
-                collection.data.delete_many(
-                    where=Filter.by_property("file_id").equal(f"{file_id}")
-                )
-            else:
-                break
+        if client.collections.exists(VECTOR_DB):
+            collection = client.collections.get(VECTOR_DB)
+            while True:
+                groupBy = collection.aggregate.over_all(group_by=GroupByAggregate(prop="file_id"))
+                file_id_count = 0
+                for group in groupBy.groups:
+                    if group.grouped_by.value == file_id:
+                        file_id_count = int(group.total_count)
+                if file_id_count > 0:
+                    collection.data.delete_many(
+                        where=Filter.by_property("file_id").equal(f"{file_id}")
+                    )
+                else:
+                    break
     finally:
         client.close()
 
@@ -200,20 +202,21 @@ def readFile():
         try:
             offset = 0
             limit = 30
-            while True:
-                result = client.collections.get(VECTOR_DB).query.fetch_objects(
-                    filters=Filter.by_property("file_id").equal(f"{file_id}"),
-                    limit=limit,
-                    offset=offset
-                )
-                offset += limit
-                count = 0
-                for o in result.objects:
-                    count += 1
-                    chunks.append(o.properties)
-                
-                if not count:
-                    break
+            if client.collections.exists(VECTOR_DB):
+                while True:
+                    result = client.collections.get(VECTOR_DB).query.fetch_objects(
+                        filters=Filter.by_property("file_id").equal(f"{file_id}"),
+                        limit=limit,
+                        offset=offset
+                    )
+                    offset += limit
+                    count = 0
+                    for o in result.objects:
+                        count += 1
+                        chunks.append(o.properties)
+                    
+                    if not count:
+                        break
         finally:
             client.close()
 
@@ -269,20 +272,21 @@ def rag():
     chunks = []
     client = weaviate.connect_to_local()
     try:
-        collection = client.collections.get(VECTOR_DB)
-        resp = collection.query.near_vector(
-            near_vector=vector,
-            limit=50,
-            distance=0.6,
-            return_metadata=MetadataQuery(distance=True)
-        )
-        for o in resp.objects:
-            chunks.append({
-                'file_id': o.properties['file_id'],
-                'page': o.properties['page'],
-                'text': o.properties['chunk'],
-                'score': o.metadata.distance
-            })
+        if client.collections.exists(VECTOR_DB):
+            collection = client.collections.get(VECTOR_DB)
+            resp = collection.query.near_vector(
+                near_vector=vector,
+                limit=50,
+                distance=0.6,
+                return_metadata=MetadataQuery(distance=True)
+            )
+            for o in resp.objects:
+                chunks.append({
+                    'file_id': o.properties['file_id'],
+                    'page': o.properties['page'],
+                    'text': o.properties['chunk'],
+                    'score': o.metadata.distance
+                })
     finally:
         client.close()
 
