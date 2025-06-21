@@ -1,5 +1,4 @@
 import os
-import uuid
 import fitz  # PyMuPDF
 from openai import OpenAI
 import weaviate
@@ -233,6 +232,16 @@ def readFile():
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
+
+@app.route("/clean", methods=["GET"])
+def clearVectorDB():
+    client = weaviate.connect_to_local()
+    try:
+        client.collections.delete_all()
+    finally:
+        client.close()
+    
+    return redirect(url_for('upload'))
 
 @app.route("/openai", methods=["POST"])
 def openai():
