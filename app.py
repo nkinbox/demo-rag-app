@@ -4,6 +4,7 @@ import fitz  # PyMuPDF
 import openai
 import weaviate
 import spacy
+from weaviate.classes.config import Property, DataType, Configure
 
 from flask import Flask, request, render_template, redirect, url_for
 
@@ -21,16 +22,16 @@ client = weaviate.connect_to_local()
 
 # Create vector DB class if not exists
 def init_weaviate_schema():
-    if not client.schema.contains({"class": "ComplianceChunk"}):
-        client.schema.create_class({
-            "class": "ComplianceChunk",
-            "vectorizer": "none",  # Using OpenAI embeddings
-            "properties": [
-                {"name": "file_id", "dataType": ["string"]},
-                {"name": "page", "dataType": ["int"]},
-                {"name": "chunk", "dataType": ["text"]}
+    if not client.collections.exists("ComplianceChunk"):
+        client.collections.create(
+            "ComplianceChunk",
+            vectorizer_config=None,
+            properties=[
+                Property(name="file_id", data_type=DataType.TEXT),
+                Property(name="page", data_type=DataType.INT),
+                Property(name="chunk", data_type=DataType.TEXT),
             ]
-        })
+        )
 
 init_weaviate_schema()
 
