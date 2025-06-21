@@ -54,7 +54,7 @@ def extract_pdf_text(pdf_path):
     return pages
 
 
-def chunk_with_spacy(text, max_tokens=500, overlap=2):
+def chunk_with_spacy(text, max_tokens=100, overlap=2):
     doc = nlp(text)
     sentences = [sent.text.strip() for sent in doc.sents if len(sent.text.strip()) > 5]
     chunks, current_chunk, current_len = [], [], 0
@@ -121,9 +121,8 @@ def embed_and_store(file_id, pdf_path):
     for page_data in pages:
         chunks = chunk_with_spacy(page_data["text"])
         for chunk in chunks:
-            cleaned_chunk = cleanChunk(chunk)
-            texts.append(cleaned_chunk)
-            all_chunks.append({"chunk": cleaned_chunk, "page": page_data["page"]})
+            texts.append(chunk)
+            all_chunks.append({"chunk": chunk, "page": page_data["page"]})
 
     if not len(all_chunks):
         return
