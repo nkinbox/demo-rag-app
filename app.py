@@ -237,6 +237,7 @@ def rag():
             collection = client.collections.get(VECTOR_DB)
             resp = collection.query.near_vector(
                 near_vector=vector,
+                limit=10,
                 return_metadata=MetadataQuery(distance=True)
             )
             for o in resp.objects:
