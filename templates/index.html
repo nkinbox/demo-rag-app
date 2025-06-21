@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Compliance PDF Manager</title>
+</head>
+<body>
+  <h1>Uploaded Compliance PDFs</h1>
+
+  <ul>
+    {% for f in files %}
+      <li>
+        {{ f }}
+        <form method="post" style="display:inline;">
+          <input type="hidden" name="delete" value="{{ f }}">
+          <button type="submit">Delete</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+
+  <h2>Upload New PDF</h2>
+  <form method="post" enctype="multipart/form-data">
+    <input type="file" name="file" accept="application/pdf">
+    <button type="submit" name="upload">Upload</button>
+  </form>
+</body>
+</html>
