@@ -54,21 +54,31 @@ def extract_pdf_text(pdf_path):
     return pages
 
 
-def chunk_with_spacy(text, max_tokens=1000, overlap=2):
+def chunk_with_spacy(text, max_tokens=500, overlap_sentences=2):
     doc = nlp(text)
-    sentences = [sent.text.strip() for sent in doc.sents if len(sent.text.strip()) > 5]
-    chunks, current_chunk, current_len = [], [], 0
+    sentences = [sent.text.strip() for sent in doc.sents if len(sent.text.strip()) > 3]
 
-    for sent in sentences:
-        current_chunk.append(sent)
-        current_len += len(sent.split())
-        if current_len >= max_tokens:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = current_chunk[-overlap:]
-            current_len = sum(len(s.split()) for s in current_chunk)
+    chunks = []
+    i = 0
 
-    if current_chunk:
+    while i < len(sentences):
+        current_chunk = []
+        token_count = 0
+        j = i
+
+        # Add sentences until max_tokens is reached
+        while j < len(sentences) and token_count + len(sentences[j].split()) <= max_tokens:
+            current_chunk.append(sentences[j])
+            token_count += len(sentences[j].split())
+            j += 1
+
+        # Add chunk to result
         chunks.append(" ".join(current_chunk))
+
+        # Move index forward with overlap
+        if j == i:  # prevent infinite loop
+            j += 1
+        i = j - overlap_sentences  # move back `overlap_sentences` to include context
 
     return chunks
 
@@ -156,7 +166,7 @@ def readFile():
         client = weaviate.connect_to_local()
         try:
             offset = 0
-            limit = 1
+            limit = 30
             while True:
                 result = client.collections.get(VECTOR_DB).query.fetch_objects(
                     filters=Filter.by_property("file_id").equal(f"{file_id}"),
