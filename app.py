@@ -9,6 +9,7 @@ from weaviate.classes.aggregate import GroupByAggregate
 from werkzeug.utils import secure_filename
 from slugify import slugify
 from flask import Flask, request, render_template, redirect, url_for, jsonify
+import json
 
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -42,6 +43,38 @@ def init_weaviate_schema():
 
 init_weaviate_schema()
 
+def extract_json(text):
+    try:
+        start = text.find('{')
+        end = text.rfind('}')
+        
+        if start != -1 and end != -1 and start < end:
+            jsonText = text[start:end + 1]
+            return json.dumps(jsonText)
+        else:
+            return None
+    except Exception:
+        return None
+
+def gptResponse(prompt, system = None, temperature = 0):
+    openai = OpenAI()
+    messages = []
+    if system:
+        messages.append({
+            "role": "system",
+            "content": system,
+        })
+    messages.append({
+        "role": "user",
+        "content": prompt,
+    })
+    response = openai.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        temperature=temperature
+    )
+    result = response.choices[0].message.content.strip()
+    return result
 
 def extract_pdf_text(pdf_path):
     doc = fitz.open(pdf_path)
@@ -205,18 +238,7 @@ def clearVectorDB():
 @app.route("/openai", methods=["POST"])
 def openai():
     prompt = request.form.get('prompt')
-    openai = OpenAI()
-    response = openai.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        temperature=0
-    )
-    result = response.choices[0].message.content.strip()
+    result = gptResponse(prompt)
     return jsonify({
         'data': result
     })
@@ -249,6 +271,108 @@ def rag():
                 })
     finally:
         client.close()
+
+    return jsonify({
+        'chunks': chunks
+    })
+
+
+def extractPolicies(file_name, page_text, product_text):
+    policies = []
+    system_role = (
+        'You are a compliance policy-matching assistant.\n'
+        '\n'
+        'Your task is to analyze a product description or ad text and determine '
+        'whether it may violate or trigger any rules based on a specific policy page from a regulation document.\n'
+        '\n'
+        'You will be provided with:\n'
+        '- The text of one page from a PDF containing advertising or content policies\n'
+        '- The text of a product description or advertisement\n'
+        '\n'
+        'You must only use the policy content from the provided PDF page as your source.  \n'
+        'Do not rely on outside knowledge.  \n'
+        'Do not apply rules not found in the page.  \n'
+        'Do not assume anything beyond what is clearly stated in the PDF page and the product content.\n'
+        '\n'
+        'Your job is to:\n'
+        '- Match any specific rules, clauses, or language from the PDF policy page to the ad/product text\n'
+        '- Identify which policies apply or are potentially violated\n'
+        '- Use exact quotes from both the PDF and product content to justify any matches\n'
+        '\n'
+        'Respond in this exact JSON format:\n'
+        '\n'
+        '```json\n'
+        '{\n'
+        '  "matches": [\n'
+        '    {\n'
+        '      "policy_text": "<quoted sentence or phrase from the PDF policy>",\n'
+        '      "product_text": "<quoted sentence or phrase from the product>",\n'
+        '      "violation": "<yes or no>",\n'
+        '      "reason": "<why this policy is applicable or potentially violated>"\n'
+        '    }\n'
+        '  ]\n'
+        '}\n'
+        '```\n\n'
+        '\n'
+        'If no policy clearly applies, than respond with empty matches.\n'
+        '\n'
+        '```json\n'
+        '{\n'
+        '  "matches": []\n'
+        '}\n'
+        '```\n'
+    )
+    user_prompt = (
+        f'Here is a page from the policy PDF ({file_name}):\n'
+        '\n'
+        '---\n'
+        f'{page_text}\n'
+        '---\n'
+        '\n'
+        'Here is the product or ad content:\n'
+        '\n'
+        '---\n'
+        f'{product_text}\n'
+        '---\n'
+        '\n'
+        'Please identify any relevant matches using only the PDF content above. Follow the JSON format.\n'
+    )
+    for i in range(3):
+        try:
+            response = gptResponse(user_prompt, system_role)
+            jsonResp = extract_json(response)
+            if jsonResp is not None and 'matches' in jsonResp:
+                policies_ = []
+                for match in jsonResp['matches']:
+                    policies_.append({
+                        'policy_text' : match['policy_text'],
+                        'product_text' : match['product_text'],
+                        'violation' : match['violation'],
+                        'reason' : match['reason'],
+                    })
+                
+                for row in policies_:
+                    policies.append(row)
+                return policies
+        except Exception:
+            pass
+
+    return policies
+
+@app.route("/bruteRag", methods=["POST"])
+def bruteRag():
+    chunks = []
+    context = request.form.get('context')
+    for f in os.listdir(app.config['UPLOAD_FOLDER']):
+        if f.endswith(".pdf"):
+            file_id = f.replace(".pdf", "")
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], file_id + ".pdf")
+            pages = extract_pdf_text(file_path)
+
+            for page_data in pages:
+                policies = extractPolicies(file_id, page_data["text"], context)
+                for policy in policies:
+                    chunks.append(policy)
 
     return jsonify({
         'chunks': chunks
