@@ -72,21 +72,53 @@ def chunk_with_spacy(text, max_tokens=500, overlap=2):
 
     return chunks
 
+def cleanChunk(text):
+    prompt = (
+        'You are a PDF cleaning assistant.\n'
+        '\n'
+        'Your task is to slightly clean the text below **without changing the words or their order**.\n'
+        '\n'
+        'Strict rules:\n'
+        '- Do not paraphrase, reword, or change legal meaning.\n'
+        '- Only remove extra whitespace, repeated line breaks, or layout artifacts.\n'
+        '- Preserve sentence structure and punctuation exactly.\n'
+        '- Do not add or remove any sentences.\n'
+        '\n'
+        'Clean this text:\n'
+        '---\n'
+        f'{text}\n'
+        '---\n'
+        'Return only the cleaned text.\nDo not add any comments.'
+    )
+    openai = OpenAI()
+    response = openai.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ],
+        temperature=0
+    )
+    return response.choices[0].message.content.strip()
 
 def embed_and_store(file_id, pdf_path):
     openai = OpenAI()
     pages = extract_pdf_text(pdf_path)
     all_chunks = []
 
+    texts = []
     for page_data in pages:
         chunks = chunk_with_spacy(page_data["text"])
         for chunk in chunks:
-            all_chunks.append({"chunk": chunk, "page": page_data["page"]})
+            cleaned_chunk = cleanChunk(chunk)
+            texts.append(cleaned_chunk)
+            all_chunks.append({"chunk": cleaned_chunk, "page": page_data["page"]})
 
     if not len(all_chunks):
         return
     
-    texts = [c["chunk"] for c in all_chunks]
     embeddings = openai.embeddings.create(input=texts, model="text-embedding-3-large").data
 
     client = weaviate.connect_to_local()
