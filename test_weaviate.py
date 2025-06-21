@@ -10,9 +10,9 @@ if not client.is_ready():
 
 # List all collections and object counts
 collections = client.collections.list_all()
-for collection in collections:
-    name = collection
-    count = client.collections.get(name).count()
+for name in collections:
+    collection = client.collections.get(name)
+    count = collection.aggregate.over_all()
     print(f"Collection: {name}, Object Count: {count}")
 
 client.close()
