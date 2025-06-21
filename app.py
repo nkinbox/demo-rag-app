@@ -184,10 +184,10 @@ def upload():
                     counter += 1
                     filename = f"{file_id}_{counter}.pdf"
                     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-                file_id = f"{file_id}_{counter}.pdf"
+                if counter:
+                    file_id = f"{file_id}_{counter}.pdf"
                 file.save(file_path)
-                
+
                 embed_and_store(file_id, file_path)
         elif 'delete' in request.form:
             file_id = request.form['delete']
