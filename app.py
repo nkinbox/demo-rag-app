@@ -176,17 +176,8 @@ def upload():
                 file_id = slugify(original_name)
                 filename = f"{file_id}.pdf"
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-
-                # Avoid overwriting existing files
-                counter = 0
-                while os.path.exists(file_path):
-                    counter += 1
-                    filename = f"{file_id}_{counter}.pdf"
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                if counter:
-                    file_id = f"{file_id}_{counter}"
                 file.save(file_path)
-
+                delete_from_weaviate(file_id)
                 embed_and_store(file_id, file_path)
         elif 'delete' in request.form:
             file_id = request.form['delete']
