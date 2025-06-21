@@ -72,46 +72,6 @@ def chunk_with_spacy(text, max_tokens=100, overlap=2):
 
     return chunks
 
-def cleanChunk(text):
-    prompt = (
-        'You are a PDF cleanup and formatting assistant for compliance documents.\n'
-        '\n'
-        'Your task is to:\n'
-        '1. Remove layout junk (like "Page 4", headers, footers, repeated section names)\n'
-        '2. Fix spacing, line breaks, OCR issues\n'
-        '3. Format the cleaned text into **Markdown** to make it more human-readable:\n'
-        '   - Use bullet points, numbered lists, or headings where obvious\n'
-        '   - Preserve paragraph breaks and logical structure\n'
-        '\n'
-        'Very important rules:\n'
-        '- Do **not** paraphrase, reword, or summarize anything\n'
-        '- Do **not** add your own content or interpretation\n'
-        '- Do **not** modify legal meaning, grammar, or sentence structure\n'
-        '- Only apply formatting — the wording must remain 100% the same\n'
-        '\n'
-        'Here is the raw text:\n'
-        '---\n'
-        f'{text}\n'
-        '---\n'
-        '\n'
-        'Output:\n'
-        '- A clean, Markdown-formatted version of the above text\n'
-        '- With original wording preserved\n'
-        '- Do not include any explanation or assistant-like comments\n'
-    )
-    openai = OpenAI()
-    response = openai.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        temperature=0
-    )
-    return response.choices[0].message.content.strip()
-
 def embed_and_store(file_id, pdf_path):
     openai = OpenAI()
     pages = extract_pdf_text(pdf_path)
@@ -232,6 +192,7 @@ def clearVectorDB():
     client = weaviate.connect_to_local()
     try:
         client.collections.delete_all()
+        init_weaviate_schema()
     finally:
         client.close()
     for f in os.listdir(app.config['UPLOAD_FOLDER']):
