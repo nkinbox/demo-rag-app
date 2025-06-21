@@ -74,6 +74,7 @@ def gptResponse(prompt, system = None, temperature = 0):
         temperature=temperature
     )
     result = response.choices[0].message.content.strip()
+    print(result)
     return result
 
 def extract_pdf_text(pdf_path):
