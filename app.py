@@ -184,7 +184,7 @@ def upload():
                     filename = f"{file_id}_{counter}.pdf"
                     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 if counter:
-                    file_id = f"{file_id}_{counter}.pdf"
+                    file_id = f"{file_id}_{counter}"
                 file.save(file_path)
 
                 embed_and_store(file_id, file_path)
