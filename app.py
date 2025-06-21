@@ -89,7 +89,7 @@ def embed_and_store(file_id, pdf_path):
         return
     
     texts = [c["chunk"] for c in all_chunks]
-    embeddings = openai.embeddings.create(input=texts, model="text-embedding-3-large")["data"]
+    embeddings = openai.embeddings.create(input=texts, model="text-embedding-3-large").data
 
     client = weaviate.connect_to_local()
     try:
