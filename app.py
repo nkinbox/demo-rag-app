@@ -6,6 +6,7 @@ import weaviate
 import spacy
 from weaviate.classes.config import Property, DataType
 from weaviate.classes.query import Filter
+from weaviate.classes.aggregate import GroupByAggregate
 
 from flask import Flask, request, render_template, redirect, url_for
 
@@ -109,9 +110,18 @@ def delete_from_weaviate(file_id):
     client = weaviate.connect_to_local()
     try:
         collection = client.collections.get(VECTOR_DB)
-        collection.data.delete_many(
-            where=Filter.by_property("file_id").equal(f"{file_id}")
-        )
+        while True:
+            groupBy = collection.aggregate.over_all(group_by=GroupByAggregate(prop="file_id"))
+            file_id_count = 0
+            for group in groupBy.groups:
+                if group.grouped_by.value == file_id:
+                    file_id_count = int(group.total_count)
+            if file_id_count > 0:
+                collection.data.delete_many(
+                    where=Filter.by_property("file_id").equal(f"{file_id}")
+                )
+            else:
+                break
     finally:
         client.close()
 
@@ -145,18 +155,19 @@ def readFile():
     if file_id:
         client = weaviate.connect_to_local()
         try:
-            after = None
+            offset = 1
+            limit = 1
             while True:
                 result = client.collections.get(VECTOR_DB).query.fetch_objects(
                     filters=Filter.by_property("file_id").equal(f"{file_id}"),
-                    after=after
+                    limit=limit,
+                    offset=offset
                 )
-                after = None
+                offset += limit
                 for o in result.objects:
-                    after = o.uuid
                     chunks.append(o.properties)
                 
-                if after is None:
+                if not len(result.objects):
                     break
         finally:
             client.close()
