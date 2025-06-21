@@ -164,10 +164,12 @@ def readFile():
                     offset=offset
                 )
                 offset += limit
+                count = 0
                 for o in result.objects:
+                    count += 1
                     chunks.append(o.properties)
                 
-                if not len(result.objects):
+                if not count:
                     break
         finally:
             client.close()
