@@ -9,7 +9,7 @@
   <ul>
     {% for f in files %}
       <li>
-        <a href="/read.html?file_id={{f}}" target="_blank">{{ f }}</a>
+        <a href="/read?file_id={{f}}" target="_blank">{{ f }}</a>
         <form method="post" style="display:inline;">
           <input type="hidden" name="delete" value="{{ f }}">
           <button type="submit">Delete</button>

@@ -82,9 +82,6 @@ def embed_and_store(file_id, pdf_path):
         for chunk in chunks:
             all_chunks.append({"chunk": chunk, "page": page_data["page"]})
 
-    print("\n\npages", pages)
-    print("\n\all_chunks", all_chunks)
-
     if not len(all_chunks):
         return
     
@@ -143,7 +140,7 @@ def index():
 
 @app.route("/read", methods=["GET", "POST"])
 def readFile():
-    file_id = request.get('file_id', None)
+    file_id = request.args.get('file_id', None)
     chunks = []
     if file_id:
         client = weaviate.connect_to_local()
