@@ -44,7 +44,13 @@ init_weaviate_schema()
 
 def extract_pdf_text(pdf_path):
     doc = fitz.open(pdf_path)
-    return [{"page": i + 1, "text": page.get_text()} for i, page in enumerate(doc)]
+    pages = []
+    for page_num in range(doc.page_count):
+        page = doc.load_page(page_num)
+        text = page.get_textpage().extractText()
+        pages.append({"page": page_num + 1, "text": text})
+    
+    return pages
 
 
 def chunk_with_spacy(text, max_tokens=1000, overlap=2):
@@ -69,13 +75,15 @@ def chunk_with_spacy(text, max_tokens=1000, overlap=2):
 def embed_and_store(file_id, pdf_path):
     openai = OpenAI()
     pages = extract_pdf_text(pdf_path)
-    print("\n\npages", pages)
     all_chunks = []
 
     for page_data in pages:
         chunks = chunk_with_spacy(page_data["text"])
         for chunk in chunks:
             all_chunks.append({"chunk": chunk, "page": page_data["page"]})
+
+    print("\n\npages", pages)
+    print("\n\all_chunks", all_chunks)
 
     if not len(all_chunks):
         return
