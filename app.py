@@ -69,6 +69,7 @@ def chunk_with_spacy(text, max_tokens=1000, overlap=2):
 def embed_and_store(file_id, pdf_path):
     openai = OpenAI()
     pages = extract_pdf_text(pdf_path)
+    print("\n\npages", pages)
     all_chunks = []
 
     for page_data in pages:
@@ -76,7 +77,9 @@ def embed_and_store(file_id, pdf_path):
         for chunk in chunks:
             all_chunks.append({"chunk": chunk, "page": page_data["page"]})
 
-    print(all_chunks)
+    if not len(all_chunks):
+        return
+    
     texts = [c["chunk"] for c in all_chunks]
     embeddings = openai.embeddings.create(input=texts, model="text-embedding-3-large")["data"]
 
