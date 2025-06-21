@@ -11,7 +11,7 @@ if not client.is_ready():
 # List all collections and object counts
 collections = client.collections.list_all()
 for collection in collections:
-    name = collection.name
+    name = collection
     count = client.collections.get(name).count()
     print(f"Collection: {name}, Object Count: {count}")
 
