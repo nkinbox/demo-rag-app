@@ -102,7 +102,7 @@ def embed_and_store(file_id, pdf_path):
                         "page": c["page"],
                         "chunk": c["chunk"]
                     },
-                    vector=embeddings[i]["embedding"]
+                    vector=embeddings[i].embedding
                 )
     finally:
         client.close()
