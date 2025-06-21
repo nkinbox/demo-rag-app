@@ -355,8 +355,10 @@ def extractPolicies(file_name, page_text, product_text):
                 for row in policies_:
                     policies.append(row)
                 return policies
-        except Exception:
-            pass
+            else:
+                print("Wrong JSON")
+        except Exception as e:
+            print(e)
 
     return policies
 
