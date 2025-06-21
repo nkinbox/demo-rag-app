@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Compliance PDF Manager</title>
+</head>
+
+<body>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>File ID</th>
+                <th>Page</th>
+                <th>Chunk</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in chunks %}
+            <tr>
+                <td>{{ c.file_id }}</td>
+                <td>{{ c.page }}</td>
+                <td>{{ c.chunk }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

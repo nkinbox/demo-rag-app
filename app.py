@@ -141,6 +141,30 @@ def index():
     ]
     return render_template("index.html", files=files)
 
+@app.route("/read", methods=["GET", "POST"])
+def readFile():
+    file_id = request.get('file_id', None)
+    chunks = []
+    if file_id:
+        client = weaviate.connect_to_local()
+        try:
+            after = None
+            while True:
+                result = client.collections.get(VECTOR_DB).query.fetch_objects(
+                    filters=Filter.by_property("file_id").equal(f"{file_id}"),
+                    after=after
+                )
+                after = None
+                for o in result.objects:
+                    after = o.uuid
+                    chunks.append(o.properties)
+                
+                if after is None:
+                    break
+        finally:
+            client.close()
+
+    return render_template("chunks.html", chunks=chunks)
 
 if __name__ == "__main__":
     app.run(debug=True)
