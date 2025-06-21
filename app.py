@@ -240,6 +240,10 @@ def clearVectorDB():
         client.collections.delete_all()
     finally:
         client.close()
+    for f in os.listdir(app.config['UPLOAD_FOLDER']):
+        if f.endswith(".pdf"):
+            file_id = f.replace(".pdf", "")
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], file_id + ".pdf"))
     
     return redirect(url_for('upload'))
 
