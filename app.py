@@ -465,7 +465,7 @@ class Conversation:
         )
         return user_prompt
     
-    def getConclusion(self):
+    def makeConversation(self):
         gc_conversation = []
         mh_conversation = []
 
@@ -490,7 +490,7 @@ class Conversation:
             print("General ",gc_response,"\n\n\n")
 
             if 'yes agreed' in gc_response.lower():
-                return mh_response
+                return f"{mh_response}\n\n\n{gc_response}"
             
             gc_conversation.append({
                 'role': 'user' if gc_state == 'assistant' else 'assistant',
@@ -508,7 +508,19 @@ class Conversation:
             print("Marketing ",mh_response,"\n\n\n")
 
             if 'yes agreed' in mh_response.lower():
-                return gc_response
+                return f"{gc_response}\n\n\n{mh_response}"
+        
+    def getConclusion(self):
+        agreement = self.makeConversation()
+        prompt = (
+            f'{agreement}\n\n\n'
+            'From above conversation extract the changes to be made in below content:\n\n'
+            f'{self.content}\n\n\n'
+            'Format your response as:\n'
+            '[{"origial_line":"<original line from main content>","revised_line":"<change as per agreement in conversation>"}]'
+        )
+
+        return gptResponse(prompt)
 
 if __name__ == "__main__":
     app.run(debug=True)
