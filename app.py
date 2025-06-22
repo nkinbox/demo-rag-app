@@ -444,7 +444,7 @@ class Conversation:
             '\n'
             'Please reply now with either:\n'
             '\n'
-            '* **YES AGREED**\n'
+            '* **YES AGREED** <no explanation or justification needed>\n'
             '* **NO + your reason and suggested change**\n'
         )
         return user_prompt
@@ -490,6 +490,9 @@ class Conversation:
 
             mh_response = gptResponse(mh_conversation, system=MarketingHead().get_system_role())
             print("Marketing ",mh_response,"\n\n\n")
+
+            if 'yes agreed' in mh_response.lower():
+                return gc_response
 
 if __name__ == "__main__":
     app.run(debug=True)
