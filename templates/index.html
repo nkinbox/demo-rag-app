@@ -1,26 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Ad Compliance Checker</title>
-  <style>
-    textarea { width: 100%; height: 150px; margin-bottom: 12px; }
-    button { padding: 10px 20px; margin-bottom: 20px; }
-    pre { background: #f0f0f0; padding: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f9f9f9; }
-    #diff { white-space: pre-wrap; background: #ffffcc; padding: 10px; margin-top: 12px; }
-  </style>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/8.0.2/diff.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Ad Compliance Checker</title>
+    <style>
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin-bottom: 12px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background: #f0f0f0;
+            padding: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f9f9f9;
+        }
+
+        #diff {
+            white-space: pre-wrap;
+            background: #ffffcc;
+            padding: 10px;
+            margin-top: 12px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsdiff/8.0.2/diff.min.js"></script>
 </head>
+
 <body>
 
-<h2>1. Paste Compliance PDF Content</h2>
-<textarea id="policyText" placeholder="Paste ad policy PDF content here..."></textarea>
-
-<h2>2. Paste Product Webpage Content</h2>
-<textarea id="productText" placeholder="Paste product HTML/text content here...">
+    <h2>1. Paste Product Webpage Content</h2>
+    <textarea id="productText" placeholder="Paste product HTML/text content here...">
   (function() {
   var content = '';
   var elements = [
@@ -42,155 +73,126 @@
 })();
 </textarea>
 
-<button onclick="processContent()">Process</button>
+    <button onclick="processContent()">Process</button>
 
-<h3>3. Original Product Content</h3>
-<pre id="originalOutput"></pre>
+    <h3>2. Original Product Content</h3>
+    <pre id="originalOutput"></pre>
 
-<h3>4. Suggested Revised Content</h3>
-<pre id="suggestedOutput"></pre>
+    <h3>3. Suggested Revised Content</h3>
+    <pre id="suggestedOutput"></pre>
 
-<h3>5. Diff</h3>
-<div id="diff"></div>
+    <h3>4. Diff</h3>
+    <div id="diff"></div>
 
-<h3>6. Issues Table</h3>
-<table id="issuesTable">
-  <thead>
-    <tr>
-      <th>Original Phrase</th>
-      <th>Suggested Phrase</th>
-      <th>Priority</th>
-      <th>Reason</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
+    <h3>5. Issues Table</h3>
+    <table id="issuesTable">
+        <thead>
+            <tr>
+                <th>Policy</th>
+                <th>Original</th>
+                <th>Suggested</th>
+                <th>Diff</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
 
-<script>
-const OPENAI_API_KEY = "";  // replace with your actual key
+    <script>
+        var policies = []
+        async function collectPolicy(prompt) {
+            const formData = new FormData();
+            formData.append("context", prompt);
 
-async function callOpenAI(prompt) {
-  const payload = {
-    model: "gpt-4.1",
-    messages: [{ role: "user", content: [{ type: "text", text: prompt }] }],
-    response_format: { type: "text" },
-    temperature: 1,
-    max_completion_tokens: 2048,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0
-  };
+            const response = await fetch('http://54.226.158.71/bruteRag', {
+                method: 'POST',
+                body: formData,
+            })
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + OPENAI_API_KEY,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payload)
-  });
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "No response.";
-}
+            const data = await response.json();
+            return data.chunks?.map(c => c.policy_text) || [];
+        }
 
-async function processContent() {
-  const policy = document.getElementById("policyText").value;
-  const product = document.getElementById("productText").value;
+        async function collectResolution(product, policy) {
+            const formData = new FormData();
+            formData.append("content", product);
+            formData.append("policy", policy);
 
-  document.getElementById("originalOutput").textContent = product;
+            const response = await fetch('http://54.226.158.71/resolution', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await response.json();
+            return data.changes || [];
+        }
 
-  const prompt1 = `
-Compliance Policies:
-${policy}
+        async function applyResolution(product, resolutions) {
+            const formData = new FormData();
+            formData.append("prompt", `${product} \n\n\nApply below fixes in this product text.\n\n\`\`\`json\n${JSON.stringify(resolutions)}\n\`\`\`\n\nRemember the SEO of product must not be hampered.`);
 
------------
+            const response = await fetch('http://54.226.158.71/openai', {
+                method: 'POST',
+                body: formData,
+            })
+            const data = await response.json();
+            return data.data || '';
+        }
 
-Product Webpage Content:
-${product}
+        async function processContent() {
+            const product = document.getElementById("productText").value;
+            document.getElementById("originalOutput").textContent = product;
+            
+            policies = await collectPolicy(product);
 
------------
-Task:
-List only problematic words from the product text that are violating above compliance policies. For each, give:
-- original word
-- suggested word
-- priority (High, Medium, Low)
-- reason
+            
+            let issues = []
+            for (let i = 0; i < policies.length; i++) {
+                let resolution = collectResolution(product, policies[i]);
+                if (resolution.length) {
+                    for (let j = 0; j < resolution.length; j++) {
+                        issues.push({
+                            policy: policies[i],
+                            original: resolution[j].original_line,
+                            suggested: resolution[j].revised_line,
+                        })
+                    }
+                }
+            }
+            renderTable(issues);
 
-Return in JSON array format like:
-[
-  {
-    "original": "...",
-    "suggested": "...",
-    "priority": "...",
-    "reason": "..."
-  },
-  ...
-]
-  `.trim();
+            const revised = await applyResolution(product, issues);
+            document.getElementById("suggestedOutput").textContent = revised;
 
-  const issuesJson = await callOpenAI(prompt1);
-  let issues = [];
-  try {
-    issues = JSON.parse(issuesJson);
-  } catch (e) {
-    alert("Failed to parse issues JSON. Raw:\n" + issuesJson);
-    return;
-  }
+            showDiff(product, revised);
+        }
 
-  const prompt2 = `
-Compliance Policy Violation and Suggestion:
-${issuesJson}
+        function renderTable(issues) {
+            const tbody = document.querySelector("#issuesTable tbody");
+            tbody.innerHTML = '';
+            issues.forEach(row => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                <td>${row.policy || ""}</td>
+                <td>${row.original || ""}</td>
+                <td>${row.suggested || ""}</td>
+                <td>${showDiff(row.original, row.suggested)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
 
-Product Description:
-${product}
-
-Task:
-Rewrite the product description to comply with the above suggestions, Only return the revised version.
-
-Remember:
-1. **The objective of the products should be clearly defined.**
-2. **Present benefits should be retained in the rewrite with the same strength of wording.**
-3. **Persuasive sales language should be used to promote good product sales.**
-4. **The current content's SEO should not be compromised.**
-5. **The website content should comply with the policies of Google, Meta, Instagram, and the Advertising Standards Council of India.**
-6. **You cannot change the meaning or the heading name; it must be an exact replica of the original heading.**
-7. **The content should appear scientific and present information as factual.**
-`.trim();
-
-  const revised = await callOpenAI(prompt2);
-  document.getElementById("suggestedOutput").textContent = revised;
-
-  showDiff(product, revised);
-  renderTable(issues);
-}
-
-function renderTable(issues) {
-  const tbody = document.querySelector("#issuesTable tbody");
-  tbody.innerHTML = '';
-  issues.forEach(row => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${row.original || ""}</td>
-      <td>${row.suggested || ""}</td>
-      <td>${row.priority || ""}</td>
-      <td>${row.reason || ""}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-function showDiff(original, revised) {
-  const diff = Diff.diffWords(original, revised);
-  let result = '';
-    diff.forEach(part => {
-      const color = part.added ? 'green' :
+        function showDiff(original, revised) {
+            const diff = Diff.diffWords(original, revised);
+            let result = '';
+            diff.forEach(part => {
+                const color = part.added ? 'green' :
                     part.removed ? 'red' : 'black';
-      result += `<span style="color:${color}">${part.value}</span>`;
-    });
-  document.getElementById("diff").innerHTML = result;
-}
-</script>
+                result += `<span style="color:${color}">${part.value}</span>`;
+            });
+            document.getElementById("diff").innerHTML = result;
+        }
+    </script>
 
 </body>
+
 </html>

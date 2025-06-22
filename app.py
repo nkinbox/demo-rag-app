@@ -528,5 +528,6 @@ class Conversation:
         if 'yes' in gptResponse(prompt).lower():
             return self.getConclusion()
         return []
+
 if __name__ == "__main__":
     app.run(debug=True)
