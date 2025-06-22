@@ -444,7 +444,7 @@ class Conversation:
             '\n'
             'Please reply now with either:\n'
             '\n'
-            '* **YES AGREE**\n'
+            '* **YES AGREED**\n'
             '* **NO + your reason and suggested change**\n'
         )
         return user_prompt
@@ -473,7 +473,7 @@ class Conversation:
             gc_response = gptResponse(gc_conversation, system=GeneralCounsel().get_system_role())
             print("General ",gc_response,"\n\n\n")
 
-            if 'yes agree' in gc_response.lower() and len(gc_response.split()) < 10:
+            if 'yes agreed' in gc_response.lower():
                 return mh_response
             
             gc_conversation.append({
