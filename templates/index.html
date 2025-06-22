@@ -128,7 +128,7 @@
 
         async function applyResolution(product, resolutions) {
             const formData = new FormData();
-            formData.append("prompt", `${product} \n\n\nApply below fixes in this product text.\n\n\`\`\`json\n${JSON.stringify(resolutions)}\n\`\`\`\n\nRemember the SEO of product must not be hampered.`);
+            formData.append("prompt", `${product} \n\n\nApply below fixes in this product text.\n\n\`\`\`json\n${JSON.stringify(resolutions)}\n\`\`\`\n\nRemember the SEO of product must not be hampered. Respond with only revised content, no other text.`);
 
             const response = await fetch('http://54.226.158.71/openai', {
                 method: 'POST',
@@ -147,7 +147,7 @@
             
             let issues = []
             for (let i = 0; i < policies.length; i++) {
-                let resolution = collectResolution(product, policies[i]);
+                let resolution = await collectResolution(product, policies[i]);
                 if (resolution.length) {
                     for (let j = 0; j < resolution.length; j++) {
                         issues.push({
