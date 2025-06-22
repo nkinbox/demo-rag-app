@@ -342,6 +342,7 @@ def extractPolicies(file_name, page_text, product_text):
         try:
             response = gptResponse(user_prompt, system_role)
             jsonResp = extract_json(response)
+            print(jsonResp)
             if jsonResp is not None and 'matches' in jsonResp:
                 policies_ = []
                 for match in jsonResp['matches']:
