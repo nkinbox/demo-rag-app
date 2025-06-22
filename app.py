@@ -472,7 +472,7 @@ class Conversation:
             })
             
             gc_response = gptResponse(gc_conversation, system=GeneralCounsel().get_system_role())
-            print("General",gc_response)
+            print("General ",gc_response,"\n\n\n")
 
             if 'yes' in gc_response.lower():
                 return mh_response
@@ -490,7 +490,7 @@ class Conversation:
             mh_state = 'user' if mh_state == 'assistant' else 'assistant'
 
             mh_response = gptResponse(mh_conversation, system=MarketingHead().get_system_role())
-            print("Marketing",mh_response)
+            print("Marketing ",mh_response,"\n\n\n"))
 
 if __name__ == "__main__":
     app.run(debug=True)
