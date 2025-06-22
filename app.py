@@ -6,7 +6,6 @@ import spacy
 from weaviate.classes.config import Property, DataType
 from weaviate.classes.query import Filter, MetadataQuery
 from weaviate.classes.aggregate import GroupByAggregate
-from werkzeug.utils import secure_filename
 from slugify import slugify
 from flask import Flask, request, render_template, redirect, url_for, jsonify
 import json
@@ -64,10 +63,16 @@ def gptResponse(prompt, system = None, temperature = 0):
             "role": "system",
             "content": system,
         })
-    messages.append({
-        "role": "user",
-        "content": prompt,
-    })
+    
+    if isinstance(prompt, str):
+        messages.append({
+            "role": "user",
+            "content": prompt,
+        })
+    else:
+        for message in prompt:
+            messages.append(message)
+
     response = openai.chat.completions.create(
         model="gpt-4.1",
         messages=messages,
@@ -380,6 +385,112 @@ def bruteRag():
     return jsonify({
         'chunks': chunks
     })
+
+
+@app.route("/resolution", methods=["POST"])
+def resolution():
+    content = request.form.get('content')
+    policy = request.form.get('policy')
+    cons = Conversation(content, policy).getConclusion()
+
+    return jsonify({
+        'chunks': cons
+    })
+
+class MarketingHead:
+    def get_system_role(self):
+        system_role = (
+            'You are the Marketing Head of an e-commerce company named "Bodywell Ayurveda".\n'
+            'BODYWELL® Ayurveda is India’s leading online ayurvedic store. They offer best quality ayurvedic products and supplements for Immunity, kids, male wellness, female wellness, joints, lactation, weight loss, cardio, diabetes, cholesterol, liver, and more.\n'
+            'They are registered with the Ministry of AYUSH and adhere to GMP (Good Manufacturing Practices) standards, ensuring authenticity and safety in every product.\n\n'
+            'The General Counsel has approached you after the company received a legal notice concerning some content on the website. While the specific issue isn\'t fully clear, the notice includes a list of compliance policies your content must adhere to.\n\n'
+            'The product description or promotional content in question is currently generating high user engagement and driving significant traffic to the website. You believe that altering or removing it could impact business performance. While cooperating with the legal team, '
+            'try to defend the value of the content, explore alternative compliant phrasings, and aim to retain the essence of the messaging that is resonating with customers.'
+        )
+        return system_role
+
+class GeneralCounsel:
+    def get_system_role(self):
+        system_role = (
+            'You are General Counsel of a ecommerce company named "Bodywell Ayurveda".\n'
+            'BODYWELL® Ayurveda is India’s leading online ayurvedic store. they offer best quality ayurvedic products and supplement for Immunity, kids, male wellness, female wellness, joints, lactation, weight loss, cardio, diabetes, cholesterol, liver and more.\n'
+            'They are registered with the Ministry of AYUSH and adhere to GMP (Good Manufacturing Practices) standards, ensuring authenticity and safety in every product.\n\n'
+            'Unfortunately, you have received a legal notice concerning the content on your website. While the exact issue is unclear, the notice includes a list of policies that your company must adhere to. Please get in touch with the Marketing Head, as they are responsible for the website content. Discuss with them which product may have triggered the violation and how to address it.'
+        )
+        return system_role
+    
+    
+
+class Conversation:
+    def __init__(self, content, policy):
+        self.conversation = []
+        self.content = content
+        self.policy = policy
+    
+    def get_initial_prompt(self):
+        user_prompt = (
+            'I am the Marketing Head. I received your email about the content below.\n'
+            '\n'
+            f'---\n{self.content}---\n'
+            '\n'
+            f'\nPolicy: "{self.policy}"\n\n'
+            'I believe the content is compliant and does not need to be changed.\n'
+            '\n'
+            'Let’s keep this simple:\n'
+            'We will both respond with either **"yes"** or **"no"**.\n'
+            'Only if **both of us say "yes"**, the content will be approved and kept as-is.\n'
+            '\n'
+            'If you say "no", you must explain what part of the content needs to be changed and why.\n'
+            'If we don\'t agree, we will keep discussing until we both say "yes".\n'
+            '\n'
+            'Please reply now with either:\n'
+            '\n'
+            '* **yes**\n'
+            '* **no + your reason and suggested change**\n'
+        )
+        return user_prompt
+    
+    def getConclusion(self):
+        gc_conversation = []
+        mh_conversation = []
+
+        gc_state = 'assistant'
+        mh_state = 'user'
+
+        mh_response = self.get_initial_prompt()
+        
+
+        while True:
+            gc_conversation.append({
+                'role': 'user' if gc_state == 'assistant' else 'assistant',
+                'content': mh_response
+            })
+
+            mh_conversation.append({
+                'role': 'user' if mh_state == 'assistant' else 'assistant',
+                'content': mh_response
+            })
+            
+            gc_response = gptResponse(gc_conversation, system=GeneralCounsel().get_system_role())
+            print("General",gc_response)
+
+            if 'yes' in gc_response.lower():
+                return mh_response
+            
+            gc_conversation.append({
+                'role': 'user' if gc_state == 'assistant' else 'assistant',
+                'content': gc_response
+            })
+            gc_state = 'user' if gc_state == 'assistant' else 'assistant'
+
+            mh_conversation.append({
+                'role': 'user' if mh_state == 'assistant' else 'assistant',
+                'content': gc_response
+            })
+            mh_state = 'user' if mh_state == 'assistant' else 'assistant'
+
+            mh_response = gptResponse(mh_conversation, system=MarketingHead().get_system_role())
+            print("Marketing",mh_response)
 
 if __name__ == "__main__":
     app.run(debug=True)
