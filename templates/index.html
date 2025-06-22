@@ -175,7 +175,7 @@
                 <td>${row.policy || ""}</td>
                 <td>${row.original || ""}</td>
                 <td>${row.suggested || ""}</td>
-                <td>${showDiff(row.original, row.suggested)}</td>
+                <td>${showDiff1(row.original, row.suggested)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -190,6 +190,16 @@
                 result += `<span style="color:${color}">${part.value}</span>`;
             });
             document.getElementById("diff").innerHTML = result;
+        }
+        function showDiff1(original, revised) {
+            const diff = Diff.diffWords(original, revised);
+            let result = '';
+            diff.forEach(part => {
+                const color = part.added ? 'green' :
+                    part.removed ? 'red' : 'black';
+                result += `<span style="color:${color}">${part.value}</span>`;
+            });
+            return result;
         }
     </script>
 
