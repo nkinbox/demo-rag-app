@@ -42,10 +42,10 @@ def init_weaviate_schema():
 
 init_weaviate_schema()
 
-def extract_json(text):
+def extract_json(text, delimiter = ['{', '}']):
     try:
-        start = text.find('{')
-        end = text.rfind('}')
+        start = text.find(delimiter[0])
+        end = text.rfind(delimiter[1])
         
         if start != -1 and end != -1 and start < end:
             jsonText = text[start:end + 1]
@@ -393,7 +393,7 @@ def resolution():
     cons = Conversation(content, policy).getConclusion()
 
     return jsonify({
-        'chunks': cons
+        'changes': extract_json(cons, ['[', ']'])
     })
 
 class MarketingHead:
@@ -412,7 +412,8 @@ class MarketingHead:
             '- The product has an average customer rating of 4.3 out of 5 across reputable online pharmacy platforms such as Apollo Pharmacy, Netmeds, and 1mg.\n'
             '- This is an Indian-origin brand, developed and manufactured in India.\n'
             '- The image displayed on the packaging accurately represents the actual product contained within.\n'
-            '- The packaging does not feature any celebrity endorsement or misleading visual representation.\n'
+            '- The packaging does not feature any celebrity endorsement or misleading visual representation.\n\n'
+            'Note: Try to keep the changes minimum'
         )
         return system_role
 
@@ -430,7 +431,8 @@ class GeneralCounsel:
             '- The product has an average customer rating of 4.3 out of 5 across reputable online pharmacy platforms such as Apollo Pharmacy, Netmeds, and 1mg.\n'
             '- This is an Indian-origin brand, developed and manufactured in India.\n'
             '- The image displayed on the packaging accurately represents the actual product contained within.\n'
-            '- The packaging does not feature any celebrity endorsement or misleading visual representation.\n'
+            '- The packaging does not feature any celebrity endorsement or misleading visual representation.\n\n'
+            'Note: Try to keep the changes minimum'
         )
         return system_role
     
@@ -517,7 +519,7 @@ class Conversation:
             'From above conversation extract the changes to be made in below content:\n\n'
             f'{self.content}\n\n\n'
             'Format your response as:\n'
-            '[{"origial_line":"<original line from main content>","revised_line":"<change as per agreement in conversation>"}]'
+            '[{"original_line":"<original line from main content>","revised_line":"<change as per agreement in conversation>"}]'
         )
 
         return gptResponse(prompt)
