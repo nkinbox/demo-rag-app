@@ -490,7 +490,7 @@ class Conversation:
             mh_state = 'user' if mh_state == 'assistant' else 'assistant'
 
             mh_response = gptResponse(mh_conversation, system=MarketingHead().get_system_role())
-            print("Marketing ",mh_response,"\n\n\n"))
+            print("Marketing ",mh_response,"\n\n\n")
 
 if __name__ == "__main__":
     app.run(debug=True)
