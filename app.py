@@ -390,10 +390,10 @@ def bruteRag():
 def resolution():
     content = request.form.get('content')
     policy = request.form.get('policy')
-    cons = Conversation(content, policy).getConclusion()
+    cons = Conversation(content, policy).hasViolation()
 
     return jsonify({
-        'changes': extract_json(cons, ['[', ']'])
+        'changes': cons
     })
 
 class MarketingHead:
@@ -453,17 +453,11 @@ class Conversation:
             f'\nPolicy: "{self.policy}"\n\n'
             'I believe the content is compliant and does not need to be changed.\n'
             '\n'
-            'Let’s keep this simple:\n'
-            'We will both respond with either **"yes"** or **"no"**.\n'
-            'Only if **both of us say "yes"**, the content will be approved and kept as-is.\n'
-            '\n'
-            'If you say "no", you must explain what part of the content needs to be changed and why.\n'
             'If we don\'t agree, we will keep discussing until we both say "yes".\n'
-            '\n'
-            'Please reply now with either:\n'
-            '\n'
-            '* **YES AGREED** <no explanation or justification needed>\n'
-            '* **NO + your reason and suggested change**\n'
+            'Let’s keep response format consistent without any markdown:\n'
+            'Agree: Yes/No\n'
+            'Reason: <disagreement reason>\n'
+            'Suggestion: <Suggest change, keep them minimal>'
         )
         return user_prompt
     
@@ -491,7 +485,7 @@ class Conversation:
             gc_response = gptResponse(gc_conversation, system=GeneralCounsel().get_system_role())
             print("General ",gc_response,"\n\n\n")
 
-            if 'yes agreed' in gc_response.lower():
+            if 'agree: yes' in gc_response.lower():
                 return f"{mh_response}\n\n\n{gc_response}"
             
             gc_conversation.append({
@@ -509,7 +503,7 @@ class Conversation:
             mh_response = gptResponse(mh_conversation, system=MarketingHead().get_system_role())
             print("Marketing ",mh_response,"\n\n\n")
 
-            if 'yes agreed' in mh_response.lower():
+            if 'agree: yes' in mh_response.lower():
                 return f"{gc_response}\n\n\n{mh_response}"
         
     def getConclusion(self):
@@ -522,7 +516,17 @@ class Conversation:
             '[{"original_line":"<original line from main content>","revised_line":"<change as per agreement in conversation>"}]'
         )
 
-        return gptResponse(prompt)
+        return  extract_json(gptResponse(prompt), ['[', ']'])
 
+    def hasViolation(self):
+        prompt = (
+            f'Policy statement: {self.policy}\n\n'
+            'Is the below product description in violation of given policy?\n\n'
+            f'{self.content}\n\n\n'
+            'Respond as Yes or No only, no other explanation\n'
+        )
+        if 'yes' in gptResponse(prompt).lower():
+            return self.getConclusion()
+        return []
 if __name__ == "__main__":
     app.run(debug=True)
